@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>הורדות לענן שלי</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; background-color: #f3f4f6; }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3b82f6; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <div class="bg-white rounded-xl shadow-lg p-6 md:p-8 max-w-lg w-full">
+        
+        <!-- כותרת האתר -->
+        <div class="text-center mb-8">
+            <div class="inline-block p-4 bg-blue-50 rounded-full mb-4">
+                <i class="fas fa-cloud-download-alt text-4xl text-blue-500"></i>
+            </div>
+            <h1 class="text-2xl font-bold text-gray-800">הורדת קבצים ל-Drive</h1>
+            <p class="text-gray-500 mt-2">הדבק קישור והמערכת תוריד אותו ישירות לענן</p>
+        </div>
+
+        <!-- אזור הגדרות (מוסתר כברירת מחדל) -->
+        <div class="mb-6">
+            <button onclick="toggleSettings()" class="text-sm text-gray-500 hover:text-blue-600 flex items-center justify-center w-full gap-2">
+                <i class="fas fa-cog"></i> הגדרות מערכת (פעם ראשונה בלבד)
+            </button>
+            <div id="settingsPanel" class="hidden mt-4 bg-gray-50 p-4 rounded-lg border border-gray-200 space-y-3">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">שם משתמש ב-GitHub:</label>
+                    <input type="text" id="githubUser" class="w-full border rounded-md p-2 text-left" dir="ltr" placeholder="לדוגמה: yossi123">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">שם המחסן (Repository):</label>
+                    <input type="text" id="githubRepo" class="w-full border rounded-md p-2 text-left" dir="ltr" placeholder="לדוגמה: drive-downloader">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">מפתח גישה (GitHub Token):</label>
+                    <input type="password" id="githubToken" class="w-full border rounded-md p-2 text-left" dir="ltr" placeholder="ghp_xxxxxxxxxxxx">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">קישור לתיקייה ב-Google Drive:</label>
+                    <input type="text" id="driveLink" class="w-full border rounded-md p-2 text-left" dir="ltr" placeholder="https://drive.google.com/drive/folders/...">
+                </div>
+                <button onclick="saveSettings()" class="w-full bg-gray-800 text-white rounded-md py-2 mt-2 hover:bg-gray-700 transition">שמור הגדרות</button>
+            </div>
+        </div>
+
+        <!-- אזור ההורדה הראשי -->
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">קישור לקובץ:</label>
+                <input type="url" id="fileUrl" class="w-full border-2 border-blue-200 focus:border-blue-500 rounded-lg p-3 text-left focus:outline-none transition" dir="ltr" placeholder="https://example.com/file.zip">
+            </div>
+            
+            <button id="downloadBtn" onclick="triggerDownload()" class="w-full bg-blue-600 text-white font-bold rounded-lg py-4 shadow-md hover:bg-blue-700 transition flex justify-center items-center gap-2">
+                <i class="fas fa-paper-plane"></i> שלח להורדה בענן
+            </button>
+        </div>
+
+        <!-- אזור סטטוס והתקדמות -->
+        <div id="statusArea" class="hidden mt-6 bg-blue-50 rounded-lg p-4 border border-blue-100">
+            <div class="flex items-center gap-3 mb-2">
+                <div id="statusIcon" class="loader"></div>
+                <h3 id="statusTitle" class="font-bold text-blue-800">מאתחל בקשה...</h3>
+            </div>
+            <p id="statusText" class="text-sm text-blue-600 mb-4">מתחבר לשרתים של GitHub...</p>
+            
+            <a id="driveLinkBtn" href="#" target="_blank" class="hidden w-full bg-green-500 text-white font-bold rounded-lg py-2 text-center hover:bg-green-600 transition items-center justify-center gap-2">
+                <i class="fab fa-google-drive"></i> פתח את התיקייה בדרייב
+            </a>
+        </div>
+
+    </div>
+
+    <script>
+        // טעינת הגדרות שנשמרו בדפדפן
+        window.onload = function() {
+            document.getElementById('githubUser').value = localStorage.getItem('githubUser') || '';
+            document.getElementById('githubRepo').value = localStorage.getItem('githubRepo') || '';
+            document.getElementById('githubToken').value = localStorage.getItem('githubToken') || '';
+            document.getElementById('driveLink').value = localStorage.getItem('driveLink') || '';
+            
+            // פתיחת חלון ההגדרות אוטומטית אם חסרים נתונים
+            if(!localStorage.getItem('githubToken')) {
+                document.getElementById('settingsPanel').classList.remove('hidden');
+            }
+        };
+
+        function toggleSettings() {
+            document.getElementById('settingsPanel').classList.toggle('hidden');
+        }
+
+        function saveSettings() {
+            localStorage.setItem('githubUser', document.getElementById('githubUser').value.trim());
+            localStorage.setItem('githubRepo', document.getElementById('githubRepo').value.trim());
+            localStorage.setItem('githubToken', document.getElementById('githubToken').value.trim());
+            localStorage.setItem('driveLink', document.getElementById('driveLink').value.trim());
+            toggleSettings();
+            alert('ההגדרות נשמרו בהצלחה בדפדפן שלך!');
+        }
+
+        let pollingInterval;
+
+        async function triggerDownload() {
+            const url = document.getElementById('fileUrl').value.trim();
+            const user = localStorage.getItem('githubUser');
+            const repo = localStorage.getItem('githubRepo');
+            const token = localStorage.getItem('githubToken');
+
+            if (!url) { alert('אנא הזן קישור לקובץ'); return; }
+            if (!user || !repo || !token) { alert('אנא מלא את כל ההגדרות תחילה'); toggleSettings(); return; }
+
+            // עדכון ממשק למצב טעינה
+            document.getElementById('statusArea').classList.remove('hidden');
+            document.getElementById('driveLinkBtn').classList.add('hidden');
+            document.getElementById('driveLinkBtn').classList.remove('flex');
+            document.getElementById('downloadBtn').disabled = true;
+            document.getElementById('downloadBtn').classList.add('opacity-50');
+            updateStatus('loader', 'שולח בקשה...', 'מעביר את הקישור לשרתים...', 'text-blue-800', 'text-blue-600');
+
+            try {
+                // 1. הפעלת ה-Workflow
+                const dispatchResponse = await fetch(`https://api.github.com/repos/${user}/${repo}/actions/workflows/download.yml/dispatches`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/vnd.github.v3+json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ ref: 'main', inputs: { file_url: url } })
+                });
+
+                if (!dispatchResponse.ok) {
+                    throw new Error('שגיאה בהפעלת המערכת. בדוק שההגדרות וה-Token נכונים.');
+                }
+
+                updateStatus('loader', 'התהליך החל!', 'ממתין שהשרת יתחיל להוריד (לוקח כחצי דקה)...', 'text-yellow-700', 'text-yellow-600');
+                
+                // ממתין קצת כדי שהמשימה תיווצר בגיטהאב לפני שבודקים
+                setTimeout(() => checkStatus(user, repo, token), 5000);
+
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+
+        async function checkStatus(user, repo, token) {
+            try {
+                // בדיקת המשימה האחרונה שרצה
+                const response = await fetch(`https://api.github.com/repos/${user}/${repo}/actions/workflows/download.yml/runs?per_page=1`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/vnd.github.v3+json'
+                    }
+                });
+                
+                const data = await response.json();
+                if (data.workflow_runs && data.workflow_runs.length > 0) {
+                    const run = data.workflow_runs[0];
+                    
+                    if (run.status === 'in_progress' || run.status === 'queued') {
+                        updateStatus('loader', 'מוריד ומעלה לדרייב...', `התהליך פועל בענן. מזהה משימה: ${run.id}`, 'text-blue-800', 'text-blue-600');
+                        // דוגם שוב בעוד 10 שניות
+                        pollingInterval = setTimeout(() => checkStatus(user, repo, token), 10000);
+                    } 
+                    else if (run.status === 'completed') {
+                        if (run.conclusion === 'success') {
+                            showSuccess();
+                        } else {
+                            showError('התהליך נכשל. בדוק את הקישור או את התיקייה.');
+                        }
+                    }
+                } else {
+                    pollingInterval = setTimeout(() => checkStatus(user, repo, token), 5000);
+                }
+            } catch (error) {
+                showError('שגיאה בבדיקת הסטטוס.');
+            }
+        }
+
+        function updateStatus(iconHtml, title, text, titleColor, textColor) {
+            const iconContainer = document.getElementById('statusIcon');
+            if(iconHtml === 'loader') {
+                iconContainer.className = 'loader';
+                iconContainer.innerHTML = '';
+            } else {
+                iconContainer.className = '';
+                iconContainer.innerHTML = iconHtml;
+            }
+            
+            const titleEl = document.getElementById('statusTitle');
+            titleEl.textContent = title;
+            titleEl.className = `font-bold ${titleColor}`;
+            
+            const textEl = document.getElementById('statusText');
+            textEl.textContent = text;
+            textEl.className = `text-sm ${textColor} mb-4`;
+        }
+
+        function showSuccess() {
+            updateStatus('<i class="fas fa-check-circle text-2xl text-green-500"></i>', 'הושלם בהצלחה!', 'הקובץ נמצא עכשיו ב-Google Drive שלך.', 'text-green-800', 'text-green-600');
+            
+            // חשיפת כפתור הדרייב
+            const driveLink = localStorage.getItem('driveLink');
+            if (driveLink) {
+                const btn = document.getElementById('driveLinkBtn');
+                btn.href = driveLink;
+                btn.classList.remove('hidden');
+                btn.classList.add('flex');
+            }
+            resetButton();
+        }
+
+        function showError(msg) {
+            updateStatus('<i class="fas fa-exclamation-circle text-2xl text-red-500"></i>', 'שגיאה', msg, 'text-red-800', 'text-red-600');
+            resetButton();
+        }
+
+        function resetButton() {
+            document.getElementById('downloadBtn').disabled = false;
+            document.getElementById('downloadBtn').classList.remove('opacity-50');
+            document.getElementById('fileUrl').value = '';
+        }
+    </script>
+</body>
+</html>
